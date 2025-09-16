@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <title>Product Page Reviewer</title>
+</head>
+<body>
+  <h1>Product Page Reviewer</h1>
+  <form id="form" method="post" action="/api/analyze">
+    <input type="url" name="url" placeholder="https://example.com/product/123" required />
+    <button type="submit">Analyze</button>
+  </form>
+  <pre id="out"></pre>
+
+  <script>
+    const form = document.getElementById("form");
+    const out = document.getElementById("out");
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const res = await fetch("/api/analyze", { method: "POST", body: data });
+      out.textContent = JSON.stringify(await res.json(), null, 2);
+    });
+  </script>
+</body>
+</html>
