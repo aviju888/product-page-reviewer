@@ -17,6 +17,7 @@ class AnalyzeRequest(BaseModel):
 
 app = FastAPI()
 templates = Jinja2Templates(directory="../frontend/")
+app.mount("/static", StaticFiles(directory="../frontend/"), name="static")
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
