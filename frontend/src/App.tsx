@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Loader2, AlertCircle, CheckCircle2, TrendingUp, Zap, Eye } from 'lucide-react'
+import { Search, Loader2, AlertCircle, CheckCircle2, TrendingUp, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -102,8 +102,8 @@ function App() {
   ] : []
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="min-h-screen bg-slate-50 p-4">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">
@@ -115,7 +115,7 @@ function App() {
         </div>
 
         {/* URL Input */}
-        <Card className="mb-8">
+        <Card className="mb-8 border border-slate-200 bg-white shadow-sm">
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="flex gap-4">
               <div className="flex-1">
@@ -124,17 +124,16 @@ function App() {
                   placeholder="https://example.com/product/123"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="h-12 text-base"
+                  className="h-12 text-base border border-slate-300"
                 />
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="text-sm text-slate-500 mt-2">
                   💡 Try: socolachocolates.com/collections/chocolate-truffles/products/assorted-chocolate-truffle-box
                 </p>
               </div>
               <Button 
                 type="submit" 
                 disabled={loading || !url.trim()}
-                className="h-12 px-6"
-                size="lg"
+                className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {loading ? (
                   <>
@@ -171,7 +170,7 @@ function App() {
         {result && (
           <div className="space-y-8">
             {/* Overall Score */}
-            <Card>
+            <Card className="border border-slate-200 bg-white shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
@@ -187,8 +186,8 @@ function App() {
                     <div className={`text-6xl font-bold ${getScoreColor(result.heuristics.conversion_scores.overall_score)}`}>
                       {result.heuristics.conversion_scores.overall_score.toFixed(1)}
                     </div>
-                    <div className="text-2xl text-muted-foreground">/10</div>
-                    <div className="text-sm text-muted-foreground mt-2">Overall Score</div>
+                    <div className="text-2xl text-slate-500">/10</div>
+                    <div className="text-sm text-slate-500 mt-2">Overall Score</div>
                   </div>
                 </div>
 
@@ -216,7 +215,7 @@ function App() {
 
             {/* Visualizations */}
             <div className="grid md:grid-cols-2 gap-8">
-              <Card>
+              <Card className="border border-slate-200 bg-white shadow-sm">
                 <CardHeader>
                   <CardTitle>Score Breakdown</CardTitle>
                 </CardHeader>
@@ -232,7 +231,7 @@ function App() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border border-slate-200 bg-white shadow-sm">
                 <CardHeader>
                   <CardTitle>Performance Metrics</CardTitle>
                 </CardHeader>
@@ -260,7 +259,7 @@ function App() {
             {/* Issues and Actions */}
             {result.llm_report && (
               <div className="grid md:grid-cols-2 gap-8">
-                <Card>
+                <Card className="border border-slate-200 bg-white shadow-sm">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-red-600">
                       <AlertCircle className="h-5 w-5" />
@@ -270,7 +269,7 @@ function App() {
                   <CardContent>
                     <div className="space-y-3">
                       {result.llm_report.top_issues.map((issue, index) => (
-                        <div key={index} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
+                        <div key={index} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
                           <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-sm font-medium flex-shrink-0">
                             {index + 1}
                           </div>
@@ -281,7 +280,7 @@ function App() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="border border-slate-200 bg-white shadow-sm">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-green-600">
                       <CheckCircle2 className="h-5 w-5" />
@@ -291,7 +290,7 @@ function App() {
                   <CardContent>
                     <div className="space-y-3">
                       {result.llm_report.quick_wins.map((win, index) => (
-                        <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                        <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-100">
                           <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-sm font-medium flex-shrink-0">
                             ✓
                           </div>
@@ -304,51 +303,8 @@ function App() {
               </div>
             )}
 
-            {/* Priority Actions */}
-            {result.llm_report?.prioritized_actions && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="h-5 w-5" />
-                    Priority Actions
-                  </CardTitle>
-                  <CardDescription>
-                    Ranked by impact and effort required
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {result.llm_report.prioritized_actions.map((action, index) => (
-                      <div key={index} className="border rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium">{action.action}</h4>
-                          <div className="flex gap-2">
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              action.impact >= 3 ? 'bg-red-100 text-red-700' : 
-                              action.impact >= 2 ? 'bg-yellow-100 text-yellow-700' : 
-                              'bg-green-100 text-green-700'
-                            }`}>
-                              Impact: {action.impact}/3
-                            </span>
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              action.effort <= 1 ? 'bg-green-100 text-green-700' : 
-                              action.effort <= 2 ? 'bg-yellow-100 text-yellow-700' : 
-                              'bg-red-100 text-red-700'
-                            }`}>
-                              Effort: {action.effort}/3
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{action.why}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Key Metrics */}
-            <Card>
+            <Card className="border border-slate-200 bg-white shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Eye className="h-5 w-5" />
@@ -357,36 +313,36 @@ function App() {
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Page Title</div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-sm text-slate-500">Page Title</div>
                     <div className="font-medium truncate">{result.heuristics.title || 'Not found'}</div>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Main Heading</div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-sm text-slate-500">Main Heading</div>
                     <div className="font-medium truncate">{result.heuristics.h1 || 'Not found'}</div>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Price</div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-sm text-slate-500">Price</div>
                     <div className="font-medium">{result.heuristics.price || 'Not found'}</div>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Call to Action</div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-sm text-slate-500">Call to Action</div>
                     <div className="font-medium text-xs truncate">{result.heuristics.cta ? 'Found' : 'Not found'}</div>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Images</div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-sm text-slate-500">Images</div>
                     <div className="font-medium">{result.heuristics.image_count || 0}</div>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Reviews</div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-sm text-slate-500">Reviews</div>
                     <div className="font-medium">{result.heuristics.has_reviews_or_ratings ? 'Present' : 'None'}</div>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Page Size</div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-sm text-slate-500">Page Size</div>
                     <div className="font-medium">{Math.round((result.heuristics.html_bytes || 0) / 1024)} KB</div>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <div className="text-sm text-muted-foreground">External Scripts</div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="text-sm text-slate-500">External Scripts</div>
                     <div className="font-medium">{result.heuristics.external_script_count || 0}</div>
                   </div>
                 </div>
