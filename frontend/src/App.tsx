@@ -7,37 +7,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieCha
 
 interface AnalysisResult {
   url: string
-  heuristics: {
-    title: string
-    h1: string
-    price: string
-    cta: string
-    conversion_scores: {
-      overall_score: number
-      value_proposition_clarity: number
-      cta_effectiveness: number
-      trust_social_proof: number
-      visual_imagery: number
-      technical_performance: number
-    }
-    image_count: number
-    testimonials: number
-    has_reviews_or_ratings: boolean
-    html_bytes: number
-    external_script_count: number
-  }
-  llm_report?: {
-    summary: string
-    top_issues: string[]
-    quick_wins: string[]
-    prioritized_actions: Array<{
-      action: string
-      why: string
-      impact: number
-      effort: number
-      confidence: number
-    }>
-  }
+  heuristics: any // Make this flexible to handle any structure
+  llm_report?: any // Make this flexible too
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
@@ -53,6 +24,7 @@ function App() {
 
     setLoading(true)
     setError(null)
+    setResult(null) // Clear previous result
     
     try {
       const response = await fetch('/api/analyze', {
@@ -68,8 +40,10 @@ function App() {
       }
 
       const data = await response.json()
+      console.log('Analysis result:', data) // Debug log
       setResult(data)
     } catch (err) {
+      console.error('Analysis error:', err) // Debug log
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
@@ -93,13 +67,32 @@ function App() {
     return 'bg-red-100'
   }
 
-  const chartData = result ? [
-    { name: 'Clarity', value: result.heuristics.conversion_scores.value_proposition_clarity },
-    { name: 'CTA', value: result.heuristics.conversion_scores.cta_effectiveness },
-    { name: 'Trust', value: result.heuristics.conversion_scores.trust_social_proof },
-    { name: 'Visual', value: result.heuristics.conversion_scores.visual_imagery },
-    { name: 'Performance', value: result.heuristics.conversion_scores.technical_performance },
+  // Safe data extraction with fallbacks
+  const heuristics = result?.heuristics || {}
+  const conversionScores = heuristics.conversion_scores || {}
+  const llmReport = result?.llm_report
+
+  // Parse LLM report if it's a string
+  let parsedLlmReport = null
+  if (llmReport && typeof llmReport === 'string') {
+    try {
+      parsedLlmReport = JSON.parse(llmReport)
+    } catch (e) {
+      console.warn('Failed to parse LLM report:', e)
+    }
+  } else if (llmReport && typeof llmReport === 'object') {
+    parsedLlmReport = llmReport
+  }
+
+  const chartData = conversionScores ? [
+    { name: 'Clarity', value: conversionScores.value_proposition_clarity || 0 },
+    { name: 'CTA', value: conversionScores.cta_effectiveness || 0 },
+    { name: 'Trust', value: conversionScores.trust_social_proof || 0 },
+    { name: 'Visual', value: conversionScores.visual_imagery || 0 },
+    { name: 'Performance', value: conversionScores.technical_performance || 0 },
   ] : []
+
+  const overallScore = conversionScores.overall_score || 0
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -151,9 +144,21 @@ function App() {
           </CardContent>
         </Card>
 
+        {/* Loading State */}
+        {loading && (
+          <Card className="mb-8 border border-blue-200 bg-blue-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-center gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                <p className="text-blue-900">Analyzing page... This may take a moment.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Error State */}
         {error && (
-          <Card className="mb-8 border-red-200 bg-red-50">
+          <Card className="mb-8 border border-red-200 bg-red-50">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-5 w-5 text-red-600" />
@@ -166,8 +171,24 @@ function App() {
           </Card>
         )}
 
-        {/* Results */}
+        {/* Debug Info */}
         {result && (
+          <Card className="mb-4 border border-gray-200 bg-gray-50">
+            <CardContent className="pt-4">
+              <details>
+                <summary className="cursor-pointer text-sm font-medium text-gray-700">
+                  Debug: Raw Data Structure
+                </summary>
+                <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto max-h-40">
+                  {JSON.stringify(result, null, 2)}
+                </pre>
+              </details>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Results */}
+        {result && !loading && (
           <div className="space-y-8">
             {/* Overall Score */}
             <Card className="border border-slate-200 bg-white shadow-sm">
@@ -183,123 +204,131 @@ function App() {
               <CardContent>
                 <div className="flex items-center justify-center mb-6">
                   <div className="text-center">
-                    <div className={`text-6xl font-bold ${getScoreColor(result.heuristics.conversion_scores.overall_score)}`}>
-                      {result.heuristics.conversion_scores.overall_score.toFixed(1)}
+                    <div className={`text-6xl font-bold ${getScoreColor(overallScore)}`}>
+                      {overallScore.toFixed(1)}
                     </div>
                     <div className="text-2xl text-slate-500">/10</div>
                     <div className="text-sm text-slate-500 mt-2">Overall Score</div>
                   </div>
                 </div>
 
-                {result.llm_report?.summary && (
+                {parsedLlmReport?.summary && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <p className="text-blue-900">{result.llm_report.summary}</p>
+                    <p className="text-blue-900">{parsedLlmReport.summary}</p>
                   </div>
                 )}
 
                 {/* Score Breakdown */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {chartData.map((item) => (
-                    <div key={item.name} className={`p-4 rounded-lg ${getScoreBgColor(item.value)}`}>
-                      <div className="text-center">
-                        <div className={`text-2xl font-bold ${getScoreColor(item.value)}`}>
-                          {item.value}
+                {chartData.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {chartData.map((item) => (
+                      <div key={item.name} className={`p-4 rounded-lg ${getScoreBgColor(item.value)}`}>
+                        <div className="text-center">
+                          <div className={`text-2xl font-bold ${getScoreColor(item.value)}`}>
+                            {item.value}
+                          </div>
+                          <div className="text-sm text-slate-600">{item.name}</div>
                         </div>
-                        <div className="text-sm text-slate-600">{item.name}</div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Visualizations */}
-            <div className="grid md:grid-cols-2 gap-8">
-              <Card className="border border-slate-200 bg-white shadow-sm">
-                <CardHeader>
-                  <CardTitle>Score Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis domain={[0, 10]} />
-                      <Bar dataKey="value" fill="#3b82f6" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="border border-slate-200 bg-white shadow-sm">
-                <CardHeader>
-                  <CardTitle>Performance Metrics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={120}
-                        dataKey="value"
-                      >
-                        {chartData.map((_, idx) => (
-                          <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Issues and Actions */}
-            {result.llm_report && (
+            {chartData.length > 0 && (
               <div className="grid md:grid-cols-2 gap-8">
                 <Card className="border border-slate-200 bg-white shadow-sm">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-red-600">
-                      <AlertCircle className="h-5 w-5" />
-                      Top Issues
-                    </CardTitle>
+                    <CardTitle>Score Breakdown</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {result.llm_report.top_issues.map((issue, index) => (
-                        <div key={index} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
-                          <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-sm font-medium flex-shrink-0">
-                            {index + 1}
-                          </div>
-                          <p className="text-sm text-red-900">{issue}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis domain={[0, 10]} />
+                        <Bar dataKey="value" fill="#3b82f6" />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
 
                 <Card className="border border-slate-200 bg-white shadow-sm">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-green-600">
-                      <CheckCircle2 className="h-5 w-5" />
-                      Quick Wins
-                    </CardTitle>
+                    <CardTitle>Performance Metrics</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {result.llm_report.quick_wins.map((win, index) => (
-                        <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-100">
-                          <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-sm font-medium flex-shrink-0">
-                            ✓
-                          </div>
-                          <p className="text-sm text-green-900">{win}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={120}
+                          dataKey="value"
+                        >
+                          {chartData.map((_, idx) => (
+                            <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
+              </div>
+            )}
+
+            {/* Issues and Actions */}
+            {parsedLlmReport && (parsedLlmReport.top_issues || parsedLlmReport.quick_wins) && (
+              <div className="grid md:grid-cols-2 gap-8">
+                {parsedLlmReport.top_issues && (
+                  <Card className="border border-slate-200 bg-white shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-red-600">
+                        <AlertCircle className="h-5 w-5" />
+                        Top Issues
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {parsedLlmReport.top_issues.map((issue: string, index: number) => (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
+                            <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-sm font-medium flex-shrink-0">
+                              {index + 1}
+                            </div>
+                            <p className="text-sm text-red-900">{issue}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {parsedLlmReport.quick_wins && (
+                  <Card className="border border-slate-200 bg-white shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-green-600">
+                        <CheckCircle2 className="h-5 w-5" />
+                        Quick Wins
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {parsedLlmReport.quick_wins.map((win: string, index: number) => (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-sm font-medium flex-shrink-0">
+                              ✓
+                            </div>
+                            <p className="text-sm text-green-900">{win}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
 
@@ -315,35 +344,35 @@ function App() {
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500">Page Title</div>
-                    <div className="font-medium truncate">{result.heuristics.title || 'Not found'}</div>
+                    <div className="font-medium truncate">{heuristics.title || 'Not found'}</div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500">Main Heading</div>
-                    <div className="font-medium truncate">{result.heuristics.h1 || 'Not found'}</div>
+                    <div className="font-medium truncate">{heuristics.h1 || 'Not found'}</div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500">Price</div>
-                    <div className="font-medium">{result.heuristics.price || 'Not found'}</div>
+                    <div className="font-medium">{heuristics.price || 'Not found'}</div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500">Call to Action</div>
-                    <div className="font-medium text-xs truncate">{result.heuristics.cta ? 'Found' : 'Not found'}</div>
+                    <div className="font-medium text-xs truncate">{heuristics.cta ? 'Found' : 'Not found'}</div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500">Images</div>
-                    <div className="font-medium">{result.heuristics.image_count || 0}</div>
+                    <div className="font-medium">{heuristics.image_count || 0}</div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500">Reviews</div>
-                    <div className="font-medium">{result.heuristics.has_reviews_or_ratings ? 'Present' : 'None'}</div>
+                    <div className="font-medium">{heuristics.has_reviews_or_ratings ? 'Present' : 'None'}</div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500">Page Size</div>
-                    <div className="font-medium">{Math.round((result.heuristics.html_bytes || 0) / 1024)} KB</div>
+                    <div className="font-medium">{Math.round((heuristics.html_bytes || 0) / 1024)} KB</div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500">External Scripts</div>
-                    <div className="font-medium">{result.heuristics.external_script_count || 0}</div>
+                    <div className="font-medium">{heuristics.external_script_count || 0}</div>
                   </div>
                 </div>
               </CardContent>
