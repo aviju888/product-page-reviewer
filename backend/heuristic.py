@@ -531,6 +531,7 @@ def extract_testimonial_info(soup) -> dict:
     has_reviews_or_ratings = bool(testimonials or stars_present)
 
     average_rating = None
+    jsonld_review_count = None
     try:
         scripts = soup.find_all("script", attrs={"type": "application/ld+json"})
         for script in scripts:
@@ -545,9 +546,31 @@ def extract_testimonial_info(soup) -> dict:
                 ar = obj.get("aggregateRating")
                 if isinstance(ar, dict) and "ratingValue" in ar:
                     average_rating = float(str(ar["ratingValue"]).strip())
-                    break
-            if average_rating:
-                break
+                    # capture review count if present
+                    if "reviewCount" in ar:
+                        try:
+                            jsonld_review_count = int(str(ar["reviewCount"]).strip())
+                        except Exception:
+                            pass
+                
+                if obj.get("@type") in ["Product", "Service", "Organization", "LocalBusiness"]:
+                    reviews = obj.get("review")
+                    if isinstance(reviews, list):
+                        try:
+                            jsonld_review_count = max(jsonld_review_count or 0, len(reviews))
+                        except Exception:
+                            pass
+        
+        if jsonld_review_count and jsonld_review_count > 0:
+            testimonials = max(testimonials, jsonld_review_count)
+    except Exception:
+        pass
+
+    try:
+        page_text = soup.get_text(" ")
+        match = re.search(r"based on\s*(\d+)\s*reviews", page_text, re.I)
+        if match:
+            testimonials = max(testimonials, int(match.group(1)))
     except Exception:
         pass
 
