@@ -706,13 +706,19 @@ function App() {
                     <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                       <div className="text-sm text-slate-500 mb-1">Reviews</div>
                       <div className="font-medium text-sm">
-                        {heuristics.has_reviews_or_ratings ? 
-                          (heuristics.average_rating ? 
-                            `${heuristics.average_rating.toFixed(1)}/5 stars` : 
-                            'Reviews found'
-                          ) : 
+                        {heuristics.has_reviews_or_ratings ? (
+                          heuristics.testimonials && heuristics.testimonials > 0 ? (
+                            heuristics.average_rating ? (
+                              `${heuristics.average_rating.toFixed(1)}/5 • ${heuristics.testimonials} reviews`
+                            ) : (
+                              `${heuristics.testimonials} reviews`
+                            )
+                          ) : (
+                            heuristics.average_rating ? `${heuristics.average_rating.toFixed(1)}/5` : 'Reviews found'
+                          )
+                        ) : (
                           'None found'
-                        }
+                        )}
                       </div>
                     </div>
                     <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
@@ -777,6 +783,41 @@ function App() {
                   </Card>
                 )}
               </div>
+            )}
+
+            {/* Prioritized Action Plan */}
+            {parsedLlmReport && parsedLlmReport.prioritized_actions && parsedLlmReport.prioritized_actions.length > 0 && (
+              <Card className="border border-slate-200 bg-white shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-700">
+                    Prioritized Action Plan
+                  </CardTitle>
+                  <CardDescription>
+                    Ranked by impact, with confidence and effort to guide tradeoffs
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {parsedLlmReport.prioritized_actions.map((item: any, index: number) => (
+                      <div key={index} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900">{item.action}</div>
+                            {item.why && (
+                              <div className="text-sm text-slate-600 mt-1">{item.why}</div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">Impact: {item.impact}</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">Confidence: {item.confidence}</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">Effort: {item.effort}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
           </div>
