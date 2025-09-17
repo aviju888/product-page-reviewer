@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Loader2, AlertCircle, CheckCircle2, TrendingUp, Eye, Info, X } from 'lucide-react'
+import { Search, Loader2, AlertCircle, CheckCircle2, TrendingUp, Eye, Info, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -104,6 +104,8 @@ function App() {
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedScore, setSelectedScore] = useState<ScoreExplanation | null>(null)
+  const [showMetrics, setShowMetrics] = useState(false)
+  const [showScoreBreakdown, setShowScoreBreakdown] = useState(false)
 
   const analyzeUrl = async () => {
     if (!url.trim()) return
@@ -590,94 +592,140 @@ function App() {
             {chartData.length > 0 && (
               <Card className="border border-slate-200 bg-white shadow-sm">
                 <CardHeader>
-                  <CardTitle>Score Breakdown</CardTitle>
-                  <CardDescription>Click on bars for detailed explanations</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Score Breakdown</CardTitle>
+                      <CardDescription>Click on bars for detailed explanations</CardDescription>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowScoreBreakdown(!showScoreBreakdown)}
+                      className="flex items-center gap-2"
+                    >
+                      {showScoreBreakdown ? (
+                        <>
+                          <ChevronUp className="h-4 w-4" />
+                          Hide
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4" />
+                          Show
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis domain={[0, 10]} />
-                      <Tooltip 
-                        formatter={(value: any) => [`${value}/10`, 'Score']}
-                        labelFormatter={(label) => `${label} Score`}
-                      />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#3b82f6"
-                        onClick={(data: any) => {
-                          const scoreKey = data.name.toLowerCase()
-                          handleScoreClick(scoreKey, data.value)
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
+                {showScoreBreakdown && (
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis domain={[0, 10]} />
+                        <Tooltip 
+                          formatter={(value: any) => [`${value}/10`, 'Score']}
+                          labelFormatter={(label) => `${label} Score`}
+                        />
+                        <Bar 
+                          dataKey="value" 
+                          fill="#3b82f6"
+                          onClick={(data: any) => {
+                            const scoreKey = data.name.toLowerCase()
+                            handleScoreClick(scoreKey, data.value)
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                )}
               </Card>
             )}
 
             {/* Key Metrics - Moved up */}
             <Card className="border border-slate-200 bg-white shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Key Metrics
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-sm text-slate-500 mb-1">Page Title</div>
-                    <div className="font-medium text-sm leading-tight">{heuristics.title || 'Not found'}</div>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-sm text-slate-500 mb-1">Main Heading</div>
-                    <div className="font-medium text-sm leading-tight">{heuristics.h1 || 'Not found'}</div>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-sm text-slate-500 mb-1">Price</div>
-                    <div className="font-medium text-sm">{heuristics.price || 'Not found'}</div>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-sm text-slate-500 mb-1">Call to Action</div>
-                    <div className="font-medium text-sm leading-tight">
-                      {heuristics.cta ? 
-                        (heuristics.cta.length > 50 ? 
-                          `${heuristics.cta.substring(0, 50)}...` : 
-                          heuristics.cta
-                        ) : 
-                        'Not found'
-                      }
-                    </div>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-sm text-slate-500 mb-1">Images</div>
-                    <div className="font-medium text-sm">{heuristics.image_count || 0}</div>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-sm text-slate-500 mb-1">Reviews</div>
-                    <div className="font-medium text-sm">
-                      {heuristics.has_reviews_or_ratings ? 
-                        (heuristics.average_rating ? 
-                          `${heuristics.average_rating.toFixed(1)}/5 stars` : 
-                          'Reviews found'
-                        ) : 
-                        'None found'
-                      }
-                    </div>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-sm text-slate-500 mb-1">Page Size</div>
-                    <div className="font-medium text-sm">{Math.round((heuristics.html_bytes || 0) / 1024)} KB</div>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-sm text-slate-500 mb-1">External Scripts</div>
-                    <div className="font-medium text-sm">{heuristics.external_script_count || 0}</div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5" />
+                    Key Metrics
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMetrics(!showMetrics)}
+                    className="flex items-center gap-2"
+                  >
+                    {showMetrics ? (
+                      <>
+                        <ChevronUp className="h-4 w-4" />
+                        Hide
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4" />
+                        Show
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </CardContent>
+              </CardHeader>
+              {showMetrics && (
+                <CardContent>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm text-slate-500 mb-1">Page Title</div>
+                      <div className="font-medium text-sm leading-tight">{heuristics.title || 'Not found'}</div>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm text-slate-500 mb-1">Main Heading</div>
+                      <div className="font-medium text-sm leading-tight">{heuristics.h1 || 'Not found'}</div>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm text-slate-500 mb-1">Price</div>
+                      <div className="font-medium text-sm">{heuristics.price || 'Not found'}</div>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm text-slate-500 mb-1">Call to Action</div>
+                      <div className="font-medium text-sm leading-tight">
+                        {heuristics.cta ? 
+                          (heuristics.cta.length > 50 ? 
+                            `${heuristics.cta.substring(0, 50)}...` : 
+                            heuristics.cta
+                          ) : 
+                          'Not found'
+                        }
+                      </div>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm text-slate-500 mb-1">Images</div>
+                      <div className="font-medium text-sm">{heuristics.image_count || 0}</div>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm text-slate-500 mb-1">Reviews</div>
+                      <div className="font-medium text-sm">
+                        {heuristics.has_reviews_or_ratings ? 
+                          (heuristics.average_rating ? 
+                            `${heuristics.average_rating.toFixed(1)}/5 stars` : 
+                            'Reviews found'
+                          ) : 
+                          'None found'
+                        }
+                      </div>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm text-slate-500 mb-1">Page Size</div>
+                      <div className="font-medium text-sm">{Math.round((heuristics.html_bytes || 0) / 1024)} KB</div>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-sm text-slate-500 mb-1">External Scripts</div>
+                      <div className="font-medium text-sm">{heuristics.external_script_count || 0}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              )}
             </Card>
 
             {/* Issues and Suggestions */}
