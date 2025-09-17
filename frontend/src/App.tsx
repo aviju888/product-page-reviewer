@@ -186,6 +186,8 @@ function App() {
         
         if (heuristics.price) {
           explanations.push(`+ Price clearly displayed: ${heuristics.price}`)
+        } else if (heuristics.is_free_product) {
+          explanations.push('+ Free product clearly indicated')
         } else {
           explanations.push('- Price not found or unclear')
         }
@@ -219,10 +221,16 @@ function App() {
           explanations.push('- Price not close to CTA button')
         }
         
-        if (heuristics.shipping_returns_near_cta) {
-          explanations.push('+ Shipping/return info near CTA')
+        // Only check shipping for ecommerce sites
+        const siteType = heuristics.site_type || 'generic'
+        if (siteType === 'ecommerce') {
+          if (heuristics.shipping_returns_near_cta) {
+            explanations.push('+ Shipping/return info near CTA')
+          } else {
+            explanations.push('- Missing shipping/return info near CTA')
+          }
         } else {
-          explanations.push('- Missing shipping/return info near CTA')
+          explanations.push('+ Shipping info not applicable for this site type')
         }
         break
 
@@ -242,10 +250,16 @@ function App() {
           explanations.push('- No customer testimonials detected')
         }
         
-        if (heuristics.security_badges > 0) {
-          explanations.push(`+ ${heuristics.security_badges} security badges displayed`)
+        const trustIndicators = heuristics.trust_indicators || {}
+        const visualBadges = trustIndicators.security_badges || 0
+        const complianceMentions = trustIndicators.compliance_mentions || 0
+        
+        if (visualBadges > 0) {
+          explanations.push(`+ ${visualBadges} security badges displayed`)
+        } else if (complianceMentions > 0) {
+          explanations.push(`+ ${complianceMentions} compliance mentions found (GDPR, SOC2, ISO, etc.)`)
         } else {
-          explanations.push('- No security badges found')
+          explanations.push('- No security badges or compliance mentions found')
         }
         
         if (heuristics.guarantees > 0) {
