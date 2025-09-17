@@ -199,7 +199,10 @@ function App() {
 
       case 'cta':
         if (heuristics.cta) {
-          explanations.push('+ Call-to-action button found')
+          const ctaText = heuristics.cta.length > 60 ? 
+            `${heuristics.cta.substring(0, 60)}...` : 
+            heuristics.cta
+          explanations.push(`+ Call-to-action found: "${ctaText}"`)
         } else {
           explanations.push('- No clear call-to-action button detected')
         }
@@ -628,7 +631,15 @@ function App() {
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500 mb-1">Call to Action</div>
-                    <div className="font-medium text-sm">{heuristics.cta ? 'Found' : 'Not found'}</div>
+                    <div className="font-medium text-sm leading-tight">
+                      {heuristics.cta ? 
+                        (heuristics.cta.length > 50 ? 
+                          `${heuristics.cta.substring(0, 50)}...` : 
+                          heuristics.cta
+                        ) : 
+                        'Not found'
+                      }
+                    </div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500 mb-1">Images</div>
@@ -636,7 +647,15 @@ function App() {
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500 mb-1">Reviews</div>
-                    <div className="font-medium text-sm">{heuristics.has_reviews_or_ratings ? 'Present' : 'None'}</div>
+                    <div className="font-medium text-sm">
+                      {heuristics.has_reviews_or_ratings ? 
+                        (heuristics.average_rating ? 
+                          `${heuristics.average_rating.toFixed(1)}/5 stars` : 
+                          'Reviews found'
+                        ) : 
+                        'None found'
+                      }
+                    </div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-sm text-slate-500 mb-1">Page Size</div>
