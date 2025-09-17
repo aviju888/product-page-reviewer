@@ -1,30 +1,116 @@
 import { useState } from 'react'
-import { Search, Loader2, AlertCircle, CheckCircle2, TrendingUp, Eye } from 'lucide-react'
+import { Search, Loader2, AlertCircle, CheckCircle2, TrendingUp, Eye, Info, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip } from 'recharts'
 
 interface AnalysisResult {
   url: string
-  heuristics: any // Make this flexible to handle any structure
-  llm_report?: any // Make this flexible too
+  heuristics: any
+  llm_report?: any
+}
+
+interface ScoreExplanation {
+  name: string
+  score: number
+  factors: string[]
+  tips: string[]
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
+
+const SCORE_EXPLANATIONS = {
+  clarity: {
+    name: 'Value Proposition Clarity',
+    factors: [
+      'Page title length and descriptiveness',
+      'H1 heading presence and quality',
+      'Price visibility and clarity',
+      'Subheading structure'
+    ],
+    tips: [
+      'Keep page titles between 30-60 characters',
+      'Use clear, benefit-focused H1 headings',
+      'Display pricing prominently',
+      'Structure content with logical subheadings'
+    ]
+  },
+  cta: {
+    name: 'CTA Effectiveness',
+    factors: [
+      'Call-to-action button presence',
+      'CTA positioning above the fold',
+      'Price proximity to CTA',
+      'Shipping/return info near CTA'
+    ],
+    tips: [
+      'Use action-oriented CTA text',
+      'Place primary CTA above the fold',
+      'Show price near the CTA button',
+      'Include shipping/return info near purchase buttons'
+    ]
+  },
+  trust: {
+    name: 'Trust & Social Proof',
+    factors: [
+      'Customer reviews and ratings',
+      'Testimonials count',
+      'Average rating quality',
+      'Security badges and guarantees'
+    ],
+    tips: [
+      'Display customer reviews prominently',
+      'Show star ratings and review counts',
+      'Add security badges (SSL, payment)',
+      'Include money-back guarantees'
+    ]
+  },
+  visual: {
+    name: 'Visual Content',
+    factors: [
+      'Number of product images',
+      'Alt text coverage for accessibility',
+      'Image gallery presence',
+      'Visual content quality'
+    ],
+    tips: [
+      'Include multiple high-quality product images',
+      'Add descriptive alt text for all images',
+      'Create image galleries for products',
+      'Use professional photography'
+    ]
+  },
+  performance: {
+    name: 'Technical Performance',
+    factors: [
+      'Page size and load speed',
+      'Number of external scripts',
+      'Meta title and description optimization',
+      'Technical SEO elements'
+    ],
+    tips: [
+      'Optimize images and reduce page size',
+      'Minimize external JavaScript files',
+      'Write compelling meta descriptions',
+      'Use proper HTML structure and tags'
+    ]
+  }
+}
 
 function App() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedScore, setSelectedScore] = useState<ScoreExplanation | null>(null)
 
   const analyzeUrl = async () => {
     if (!url.trim()) return
 
     setLoading(true)
     setError(null)
-    setResult(null) // Clear previous result
+    setResult(null)
     
     try {
       const response = await fetch('/api/analyze', {
@@ -40,10 +126,10 @@ function App() {
       }
 
       const data = await response.json()
-      console.log('Analysis result:', data) // Debug log
+      console.log('Analysis result:', data)
       setResult(data)
     } catch (err) {
-      console.error('Analysis error:', err) // Debug log
+      console.error('Analysis error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
@@ -62,9 +148,19 @@ function App() {
   }
 
   const getScoreBgColor = (score: number) => {
-    if (score >= 7) return 'bg-green-100'
-    if (score >= 4) return 'bg-yellow-100'
-    return 'bg-red-100'
+    if (score >= 7) return 'bg-green-100 hover:bg-green-200'
+    if (score >= 4) return 'bg-yellow-100 hover:bg-yellow-200'
+    return 'bg-red-100 hover:bg-red-200'
+  }
+
+  const handleScoreClick = (scoreType: string, score: number) => {
+    const explanation = SCORE_EXPLANATIONS[scoreType as keyof typeof SCORE_EXPLANATIONS]
+    if (explanation) {
+      setSelectedScore({
+        ...explanation,
+        score
+      })
+    }
   }
 
   // Safe data extraction with fallbacks
@@ -85,11 +181,11 @@ function App() {
   }
 
   const chartData = conversionScores ? [
-    { name: 'Clarity', value: conversionScores.value_proposition_clarity || 0 },
-    { name: 'CTA', value: conversionScores.cta_effectiveness || 0 },
-    { name: 'Trust', value: conversionScores.trust_social_proof || 0 },
-    { name: 'Visual', value: conversionScores.visual_imagery || 0 },
-    { name: 'Performance', value: conversionScores.technical_performance || 0 },
+    { name: 'Clarity', value: conversionScores.value_proposition_clarity || 0, color: COLORS[0] },
+    { name: 'CTA', value: conversionScores.cta_effectiveness || 0, color: COLORS[1] },
+    { name: 'Trust', value: conversionScores.trust_social_proof || 0, color: COLORS[2] },
+    { name: 'Visual', value: conversionScores.visual_imagery || 0, color: COLORS[3] },
+    { name: 'Performance', value: conversionScores.technical_performance || 0, color: COLORS[4] },
   ] : []
 
   const overallScore = conversionScores.overall_score || 0
@@ -171,6 +267,57 @@ function App() {
           </Card>
         )}
 
+        {/* Score Explanation Modal */}
+        {selectedScore && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`text-3xl font-bold ${getScoreColor(selectedScore.score)}`}>
+                      {selectedScore.score}/10
+                    </div>
+                    <h2 className="text-xl font-semibold">{selectedScore.name}</h2>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedScore(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">How this score is calculated:</h3>
+                    <ul className="space-y-1">
+                      {selectedScore.factors.map((factor, index) => (
+                        <li key={index} className="flex items-start gap-2 text-sm text-gray-600">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                          {factor}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Improvement tips:</h3>
+                    <ul className="space-y-1">
+                      {selectedScore.tips.map((tip, index) => (
+                        <li key={index} className="flex items-start gap-2 text-sm text-green-700">
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Debug Info */}
         {result && (
           <Card className="mb-4 border border-gray-200 bg-gray-50">
@@ -218,30 +365,47 @@ function App() {
                   </div>
                 )}
 
-                {/* Score Breakdown */}
+                {/* Clickable Score Breakdown */}
                 {chartData.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {chartData.map((item) => (
-                      <div key={item.name} className={`p-4 rounded-lg ${getScoreBgColor(item.value)}`}>
-                        <div className="text-center">
-                          <div className={`text-2xl font-bold ${getScoreColor(item.value)}`}>
-                            {item.value}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <Info className="h-4 w-4" />
+                      Click on any score to see detailed explanation
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      {[
+                        { key: 'clarity', data: chartData[0] },
+                        { key: 'cta', data: chartData[1] },
+                        { key: 'trust', data: chartData[2] },
+                        { key: 'visual', data: chartData[3] },
+                        { key: 'performance', data: chartData[4] }
+                      ].map(({ key, data }) => (
+                        <div 
+                          key={key}
+                          className={`p-4 rounded-lg cursor-pointer transition-colors ${getScoreBgColor(data.value)}`}
+                          onClick={() => handleScoreClick(key, data.value)}
+                        >
+                          <div className="text-center">
+                            <div className={`text-2xl font-bold ${getScoreColor(data.value)}`}>
+                              {data.value}
+                            </div>
+                            <div className="text-sm text-slate-600">{data.name}</div>
                           </div>
-                          <div className="text-sm text-slate-600">{item.name}</div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Visualizations */}
+            {/* Improved Visualizations */}
             {chartData.length > 0 && (
               <div className="grid md:grid-cols-2 gap-8">
                 <Card className="border border-slate-200 bg-white shadow-sm">
                   <CardHeader>
                     <CardTitle>Score Breakdown</CardTitle>
+                    <CardDescription>Click on bars for detailed explanations</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
@@ -249,7 +413,19 @@ function App() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis domain={[0, 10]} />
-                        <Bar dataKey="value" fill="#3b82f6" />
+                        <Tooltip 
+                          formatter={(value: any) => [`${value}/10`, 'Score']}
+                          labelFormatter={(label) => `${label} Score`}
+                        />
+                        <Bar 
+                          dataKey="value" 
+                          fill="#3b82f6"
+                          onClick={(data: any) => {
+                            const scoreKey = data.name.toLowerCase()
+                            handleScoreClick(scoreKey, data.value)
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </CardContent>
@@ -257,7 +433,8 @@ function App() {
 
                 <Card className="border border-slate-200 bg-white shadow-sm">
                   <CardHeader>
-                    <CardTitle>Performance Metrics</CardTitle>
+                    <CardTitle>Performance Distribution</CardTitle>
+                    <CardDescription>Hover for values, click segments for details</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
@@ -269,11 +446,26 @@ function App() {
                           innerRadius={60}
                           outerRadius={120}
                           dataKey="value"
+                          onClick={(data: any) => {
+                            const scoreKey = data.name.toLowerCase()
+                            handleScoreClick(scoreKey, data.value)
+                          }}
+                          style={{ cursor: 'pointer' }}
                         >
                           {chartData.map((_, idx) => (
                             <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
                           ))}
                         </Pie>
+                        <Tooltip formatter={(value: any) => [`${value}/10`, 'Score']} />
+                        <Legend 
+                          verticalAlign="bottom" 
+                          height={36}
+                          formatter={(value) => (
+                            <span>
+                              {value}
+                            </span>
+                          )}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </CardContent>
