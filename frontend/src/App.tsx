@@ -362,19 +362,19 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">
-            🔍 Product Page Reviewer
+            Product Page Reviewer
           </h1>
           <p className="text-slate-600 text-lg">
-            Analyze any product page for UX wins and conversion opportunities
+            Analyze product pages for conversion optimization
           </p>
         </div>
 
         {/* URL Input */}
-        <Card className="mb-8 border border-slate-200 bg-white shadow-sm">
+        <Card className="mb-8 border border-slate-200 bg-white shadow-sm max-w-3xl mx-auto">
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="flex gap-4">
               <div className="flex-1">
@@ -385,9 +385,6 @@ function App() {
                   onChange={(e) => setUrl(e.target.value)}
                   className="h-12 text-base border border-slate-300"
                 />
-                <p className="text-sm text-slate-500 mt-2">
-                  💡 Try: socolachocolates.com/collections/chocolate-truffles/products/assorted-chocolate-truffle-box
-                </p>
               </div>
               <Button 
                 type="submit" 
