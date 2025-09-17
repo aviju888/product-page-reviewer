@@ -1,7 +1,10 @@
 # Product Page Reviewer
 
-Conversion optimization tool that analyzes product pages and provides UI/UX feedback.
-![Screenshot](screenshot.png)
+Conversion optimization tool that, given a URL, analyzes product pages and provides UI/UX feedback.
+![Screenshot 1](screenshot.png)
+![Screenshot 2](screenshot-1.png)
+![Screenshot 3](screenshot-2.png)
+
 
 ## Quick Start
 
