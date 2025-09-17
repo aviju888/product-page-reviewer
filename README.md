@@ -2,9 +2,9 @@
 
 Conversion optimization tool that, given a URL, analyzes product pages and provides UI/UX feedback.
 
-<img src="screenshot.png" alt="Screenshot 1" width="600" />
-<img src="screenshot-1.png" alt="Screenshot 2" width="600" />
-<img src="screenshot-2.png" alt="Screenshot 3" width="600" />
+<img src="screenshots/screenshot.png" alt="Screenshot 1" width="600" />
+<img src="screenshots/screenshot-1.png" alt="Screenshot 2" width="600" />
+<img src="screenshots/screenshot-2.png" alt="Screenshot 3" width="600" />
 
 
 ## Quick Start
