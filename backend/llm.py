@@ -43,7 +43,7 @@ RETURN JSON WITH EXACT KEYS:
     {{"area":"hero","text":"Free 30-day returns • Ships in 24h"}}
   ]
 }}
-
+    
 CONSTRAINTS:
 - Be concrete and map advice to the provided signals (e.g., if price_near_cta=false, address it).
 - Use 1–3 sentence fragments per item; no fluff.
