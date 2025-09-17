@@ -137,7 +137,7 @@ def detect_site_type(soup) -> str:
 def detect_page_type(soup) -> str:
     """detect homepage, product page, or other page type"""
     page_text = soup.get_text().lower()
-    url = ""  # We don't have URL in this context, but we can infer from content
+    url = ""
     
     product_indicators = [
         "add to cart", "buy now", "add to bag", "quantity", "size", "color", "variant",
@@ -167,12 +167,11 @@ def detect_page_type(soup) -> str:
     
     if max(scores.values()) > 0:
         page_type = max(scores, key=scores.get)
-        # product page detection logic
-        if product_score >= 5 and product_score > homepage_score * 2:
+        if product_score >= 4 and product_score >= homepage_score:
             return "product"
-        elif homepage_score >= 3:
+        elif homepage_score >= 3 and homepage_score > product_score:
             return "homepage"
-        elif category_score >= 3:
+        elif category_score >= 3 and category_score > product_score:
             return "category"
         else:
             return page_type
@@ -218,14 +217,12 @@ def extract_basic_info(soup, keywords) -> dict:
     h1_elements = soup.find_all("h1")
     product_keywords = keywords["product"]
     
-    # try product keywords first
     for h1_elem in h1_elements:
         h1_text = h1_elem.get_text(strip=True)
         if any(keyword in h1_text.lower() for keyword in product_keywords):
             h1 = h1_text
             break
     
-    # fallback: longer descriptive h1s
     if not h1:
         for h1_elem in h1_elements:
             h1_text = h1_elem.get_text(strip=True)
@@ -233,7 +230,6 @@ def extract_basic_info(soup, keywords) -> dict:
                 h1 = h1_text
                 break
     
-    # fallback: other headings with product keywords
     if not h1:
         for tag in ['h2', 'h3', 'h4', 'h5', 'h6']:
             elements = soup.find_all(tag)
@@ -245,7 +241,6 @@ def extract_basic_info(soup, keywords) -> dict:
             if h1:
                 break
     
-    # fallback: substantial content headings
     if not h1:
         for tag in ['h2', 'h3', 'h4', 'h5', 'h6']:
             elements = soup.find_all(tag)
@@ -257,7 +252,6 @@ def extract_basic_info(soup, keywords) -> dict:
             if h1:
                 break
     
-    # last resort: first h1
     if not h1 and h1_elements:
         h1 = h1_elements[0].get_text(strip=True)
     
@@ -269,14 +263,12 @@ def extract_pricing_info(soup) -> dict:
     is_free_product = False
     price_selectors = [".price", "[class*=price]", "[id*=price]", "[data-price]"]
     
-    # try css selectors first
     for selector in price_selectors:
         price_element = soup.select_one(selector)
         if price_element and price_element.get_text(strip=True):
             price = price_element.get_text(strip=True)
             break
     
-    # regex patterns
     if not price:
         price_patterns = [
             r'[\$\£\€¥₹]\s*\d[\d,]*(?:\.\d{2})?\s*(?:per\s+(?:minute|month|year|day|hour|user|seat|license|unit)|/min|/mo|/yr|/day|/hr|/user|/seat)',
@@ -292,7 +284,6 @@ def extract_pricing_info(soup) -> dict:
             price_matches = re.findall(pattern, all_text, re.I)
             if price_matches:
                 for match in price_matches:
-                    # check if free product
                     if re.match(r'(?:free|no cost|complimentary|gratis|free forever|free plan|get for free|start free|try free)\b', match, re.I):
                         price = match.strip()
                         is_free_product = True
@@ -323,9 +314,15 @@ def extract_cta_info(soup, keywords) -> dict:
         "add to wishlist", "save for later", "quick buy", "one-click buy"
     ]
     
-    # find first matching cta
+    exclude_patterns = [
+        "skip to", "skip", "navigation", "menu", "breadcrumb", "breadcrumbs",
+        "open media", "close", "modal", "popup", "overlay", "accessibility",
+        "screen reader", "sr-only", "visually hidden", "skip to content",
+        "skip to main", "skip to product", "skip to navigation"
+    ]
+    
     for cta_text in cta_texts:
-        button_elements = soup.find_all(["button", "a", "input", "span", "div"])
+        button_elements = soup.find_all(["button", "a", "input"])
         for button_element in button_elements:
             button_text = (
                 button_element.get("value") or 
@@ -340,33 +337,76 @@ def extract_cta_info(soup, keywords) -> dict:
                 button_element.get("data-cta") or ""
             ).lower()
             
+            is_excluded = any(pattern in button_text for pattern in exclude_patterns)
+            if is_excluded:
+                continue
+                
             if cta_text in button_text or cta_text in data_text:
                 add_to_cart = button_element.get_text(strip=True) or button_element.get("value") or button_element.get("aria-label")
                 break
         if add_to_cart:
             break
+            
+        if not add_to_cart:
+            button_elements = soup.find_all(["span", "div"])
+            for button_element in button_elements:
+                button_text = (
+                    button_element.get("value") or 
+                    button_element.get("aria-label") or 
+                    button_element.get("title") or
+                    button_element.get_text(strip=True)
+                ).lower()
+                
+                data_text = (
+                    button_element.get("data-text") or 
+                    button_element.get("data-label") or 
+                    button_element.get("data-cta") or ""
+                ).lower()
+                
+                is_excluded = any(pattern in button_text for pattern in exclude_patterns)
+                if is_excluded:
+                    continue
+                    
 
-    # find cta node for positioning
+                has_interactive_attrs = any(button_element.get(attr) for attr in ["onclick", "data-action", "role"])
+                is_in_form = button_element.find_parent("form") is not None
+                is_in_button_context = button_element.find_parent(["button", "a"]) is not None
+                
+                if not (has_interactive_attrs or is_in_form or is_in_button_context):
+                    continue
+                    
+                if cta_text in button_text or cta_text in data_text:
+                    add_to_cart = button_element.get_text(strip=True) or button_element.get("value") or button_element.get("aria-label")
+                    break
+        if add_to_cart:
+            break
+
     cta_node = None
     for cta_text in cta_texts:
         button_elements = soup.find_all(["button", "a", "input"])
         for button_element in button_elements:
             button_text = (button_element.get("value") or button_element.get("aria-label") or button_element.get_text(strip=True)).lower()
+            
+            is_excluded = any(pattern in button_text for pattern in exclude_patterns)
+            if is_excluded:
+                continue
+                
             if cta_text in button_text:
                 cta_node = button_element
                 break
         if cta_node:
             break
 
-    # check if price is near cta
     price_near_cta = False
     if cta_node:
+    
         for scope in [cta_node, cta_node.parent, cta_node.parent.parent if cta_node.parent else None, 
                      cta_node.parent.parent.parent if cta_node.parent and cta_node.parent.parent else None]:
             if scope:
                 scope_text = scope.get_text(strip=True)
                 price_patterns = [
                     r'[\$\£\€]\s*\d[\d,]*(?:\.\d{2})?\s*(?:per\s+(?:minute|month|year|day|hour|user|seat|license|unit)|/min|/mo|/yr|/day|/hr|/user|/seat)',
+                    r'[\$\£\€]\d[\d,]*(?:\.\d{2})?',
                     r'[\$\£\€]\s*\d[\d,]*(?:\.\d{2})?',
                     r'(?:per\s+(?:minute|month|year|day|hour|user|seat|license|unit)|/min|/mo|/yr|/day|/hr|/user|/seat)\s*[\$\£\€]\s*\d[\d,]*(?:\.\d{2})?'
                 ]
@@ -376,8 +416,27 @@ def extract_cta_info(soup, keywords) -> dict:
                         break
                 if price_near_cta:
                     break
+        
+        if not price_near_cta:
+            current = cta_node
+            for level in range(6):
+                if current and current.parent:
+                    parent = current.parent
+                    siblings = parent.find_all(['div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+                    for sibling in siblings:
+                        sibling_text = sibling.get_text(strip=True)
+                        for pattern in price_patterns:
+                            if re.search(pattern, sibling_text, re.I):
+                                price_near_cta = True
+                                break
+                        if price_near_cta:
+                            break
+                    if price_near_cta:
+                        break
+                    current = current.parent
+                else:
+                    break
 
-    # check if cta is above fold
     cta_above_fold = False
     if cta_node:
         all_clickables = soup.find_all(["button", "a", "input"])
@@ -387,7 +446,6 @@ def extract_cta_info(soup, keywords) -> dict:
         except ValueError:
             cta_above_fold = False
 
-    # check for shipping/returns near cta
     shipping_returns_near_cta = False
     if cta_node:
         scope_text = (cta_node.parent or cta_node).get_text(strip=True).lower()
@@ -404,7 +462,7 @@ def extract_cta_info(soup, keywords) -> dict:
 def extract_image_info(soup) -> dict:
     """extract image info and alt text coverage"""
     image_elements = soup.find_all("img")
-    svg_elements = soup.find_all("svg")
+    svg_elements = [svg for svg in soup.find_all("svg") if not any(icon_class in svg.get("class", []) for icon_class in ["icon", "logo", "button", "arrow", "chevron"])]
     css_images = soup.find_all(attrs={"style": re.compile(r"background.*image", re.I)})
     data_images = soup.find_all(attrs={"data-src": re.compile(r"\.(jpg|jpeg|png|gif|webp|svg)", re.I)})
     picture_elements = soup.find_all("picture")
@@ -432,18 +490,15 @@ def extract_testimonial_info(soup) -> dict:
     """extract testimonials using multiple detection methods"""
     testimonials = 0
     
-    # method 1: testimonial sections and customer quotes
     testimonial_containers = soup.find_all(['div', 'section', 'article'], class_=re.compile(r'testimonial|customer|review|quote|feedback|endorsement', re.I))
     for container in testimonial_containers:
         testimonial_items = container.find_all(['div', 'article', 'li', 'blockquote', 'p'], class_=re.compile(r'testimonial|customer|review|quote|feedback|endorsement', re.I))
         testimonials += len(testimonial_items)
     
-    # method 2: quoted text patterns
     if testimonials == 0:
         quoted_text = soup.find_all(string=re.compile(r'"[^"]{20,}"', re.I))
         testimonials = len(quoted_text)
     
-    # method 3: review indicators and star ratings
     if testimonials == 0:
         review_indicators = soup.find_all(string=re.compile(r'out of 5|based on \d+ reviews|customer review|reviewed by|\d+\s*stars?|\d+\s*★', re.I))
         if review_indicators:
@@ -455,18 +510,15 @@ def extract_testimonial_info(soup) -> dict:
             if testimonials == 0:
                 testimonials = len(review_indicators)
     
-    # method 4: customer names and titles
     if testimonials == 0:
         customer_patterns = soup.find_all(string=re.compile(r'(CEO|Founder|Manager|Director|President|VP|CTO|CMO|Marketing|Sales|Operations|Owner|Principal|Lead|Head|Chief)', re.I))
         testimonials = len(customer_patterns)
     
-    # method 5: review dates
     if testimonials == 0:
         date_pattern = r'\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4}'
         review_dates = soup.find_all(string=re.compile(date_pattern))
         testimonials = len(review_dates)
     
-    # method 6: social proof elements
     if testimonials == 0:
         social_proof_elements = soup.find_all(string=re.compile(r'(?:loved by|used by|trusted by|recommended by|chosen by)\s+\d+', re.I))
         for element in social_proof_elements:
@@ -478,7 +530,6 @@ def extract_testimonial_info(soup) -> dict:
     stars_present = "★" in soup.get_text() or "rating" in soup.get_text().lower() or "reviews" in soup.get_text().lower()
     has_reviews_or_ratings = bool(testimonials or stars_present)
 
-    # extract average rating from structured data
     average_rating = None
     try:
         scripts = soup.find_all("script", attrs={"type": "application/ld+json"})
@@ -517,6 +568,9 @@ def extract_trust_info(soup) -> dict:
                    "leading", "enterprise", "fortune", "inc 500", "award", "recognized", "verified"]
     trust_text_hits = sum(1 for word in trust_words if word in page_text_low)
     
+    payment_integrations = len(soup.find_all(string=re.compile(r'shop pay|paypal|stripe|square|apple pay|google pay|amazon pay|klarna|afterpay|sezzle', re.I)))
+    payment_buttons = len(soup.find_all(['button', 'a'], string=re.compile(r'buy with|pay with|checkout with', re.I)))
+    
     client_logos = len(soup.find_all('img[alt*="logo"], [class*="logo"], [class*="client"], [class*="partner"]'))
     trust_badges = len(soup.find_all('img[alt*="badge"], [class*="badge"], [class*="certification"]'))
     social_proof = len(soup.find_all(string=re.compile(r'trusted by|used by|loved by|customers|clients|users|partners|enterprises|companies', re.I)))
@@ -524,7 +578,8 @@ def extract_trust_info(soup) -> dict:
     visual_security_badges = len(soup.find_all('img[alt*="secure"], [class*="security"], [class*="ssl"], [class*="certified"]'))
     compliance_mentions = len(soup.find_all(string=re.compile(r'gdpr|hipaa|sox|pci|iso\s*\d+|soc\s*\d+|fcc|compliant|certified', re.I)))
     
-    effective_trust_badges = max(visual_security_badges, min(compliance_mentions, 3))
+    payment_trust_score = min(payment_integrations + payment_buttons, 3)
+    effective_trust_badges = max(visual_security_badges, min(compliance_mentions, 3), payment_trust_score)
     
     trust_indicators = {
         "security_badges": visual_security_badges,
@@ -535,7 +590,9 @@ def extract_trust_info(soup) -> dict:
         "trust_badges": len(soup.find_all('img[alt*="badge"], [class*="badge"], [class*="certification"], [class*="award"]')),
         "compliance": compliance_mentions,  
         "awards": len(soup.find_all(string=re.compile(r'award|winner|recognized|featured|top|best|leading', re.I))),
-        "numbers": len(soup.find_all(string=re.compile(r'\d+\+?\s*(?:customers|users|clients|companies|enterprises|years|countries)', re.I)))
+        "numbers": len(soup.find_all(string=re.compile(r'\d+\+?\s*(?:customers|users|clients|companies|enterprises|years|countries)', re.I))),
+        "payment_integrations": payment_integrations,
+        "payment_buttons": payment_buttons
     }
 
     return {
@@ -604,7 +661,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
     scores = {}
     site_type = heuristics_data.get('site_type', 'generic')
     
-    # value proposition clarity (0-10)
     clarity_score = 0
     if heuristics_data.get('title') and len(heuristics_data['title']) > 10:
         clarity_score += 3
@@ -616,13 +672,12 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
     elif heuristics_data.get('is_free_product'):
         clarity_score += 2 
     elif site_type in ['saas', 'b2b']:
-        clarity_score += 1  # less penalty for saas/b2b without explicit pricing
+        clarity_score += 1
     
     if heuristics_data.get('has_subheadings'):
         clarity_score += 2
     scores['value_proposition_clarity'] = min(10, clarity_score)
     
-    # cta effectiveness (0-10) - context-aware scoring
     cta_score = 0
     if heuristics_data.get('cta') and heuristics_data['cta']:
         cta_score += 4
@@ -638,7 +693,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         
     scores['cta_effectiveness'] = min(10, cta_score)
     
-    # trust & social proof (0-10)
     trust_score = 0
     testimonials = heuristics_data.get('testimonials', 0)
     if testimonials > 0:
@@ -653,7 +707,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         trust_score += 1
     scores['trust_social_proof'] = min(10, trust_score)
     
-    # visual imagery (0-10)
     imagery_score = 0
     image_count = heuristics_data.get('image_count', 0)
     if image_count > 0:
@@ -673,7 +726,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         imagery_score += 2
     scores['visual_imagery'] = min(10, imagery_score)
     
-    # mobile & accessibility (0-10)
     mobile_score = 0
     if heuristics_data.get('viewport_present'):
         mobile_score += 4
@@ -691,7 +743,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         mobile_score += 1
     scores['mobile_accessibility'] = min(10, mobile_score)
     
-    # technical performance (0-10)
     performance_score = 0
     html_bytes = heuristics_data.get('html_bytes', 0)
     if html_bytes < 200000:
@@ -714,7 +765,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         performance_score += 2
     scores['technical_performance'] = min(10, performance_score)
     
-    # user experience (0-10)
     ux_score = 10
     form_count = heuristics_data.get('form_count', 0)
     if form_count > 3:
@@ -730,7 +780,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         ux_score -= 1
     scores['user_experience'] = max(0, ux_score)
     
-    # conversion optimization (0-10)
     conversion_score = 0
     if heuristics_data.get('cta_grouping'):
         conversion_score += 3
@@ -744,11 +793,9 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         conversion_score += 1
     scores['conversion_optimization'] = min(10, conversion_score)
     
-    # calculate overall score (weighted average)
     page_type = heuristics_data.get('page_type', 'unknown')
     
     if page_type == 'product':
-        # product pages: focus on conversion elements
         weights = {
             'value_proposition_clarity': 0.25,
             'cta_effectiveness': 0.20,
@@ -760,7 +807,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
             'conversion_optimization': 0.05
         }
     elif page_type == 'homepage':
-        # homepages: focus on value prop and ux
         weights = {
             'value_proposition_clarity': 0.30,
             'cta_effectiveness': 0.10,
@@ -772,7 +818,6 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
             'conversion_optimization': 0.05
         }
     else:
-        # default weights
         weights = {
             'value_proposition_clarity': 0.25,
             'cta_effectiveness': 0.15,
@@ -791,11 +836,9 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
 
 def run_heuristics(url: str) -> dict:
     """analyze product page and extract conversion signals"""
-    # print(f"fetching url: {url}")  # debug
     response = requests.get(url, timeout=12, headers={"User-Agent": "Mozilla/5.0"})
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
-    # print(f"successfully parsed html, title: {soup.title.string if soup.title else 'None'}")  # debug
 
     site_type = detect_site_type(soup)
     page_type = detect_page_type(soup)
