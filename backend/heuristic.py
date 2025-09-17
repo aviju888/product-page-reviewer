@@ -266,6 +266,7 @@ def extract_basic_info(soup, keywords) -> dict:
 def extract_pricing_info(soup) -> dict:
     """extract pricing with various formats and currencies"""
     price = ""
+    is_free_product = False
     price_selectors = [".price", "[class*=price]", "[id*=price]", "[data-price]"]
     
     # try css selectors first
@@ -281,7 +282,7 @@ def extract_pricing_info(soup) -> dict:
             r'[\$\£\€¥₹]\s*\d[\d,]*(?:\.\d{2})?\s*(?:per\s+(?:minute|month|year|day|hour|user|seat|license|unit)|/min|/mo|/yr|/day|/hr|/user|/seat)',
             r'[\$\£\€¥₹]\s*\d[\d,]*(?:\.\d{2})?',
             r'(?:per\s+(?:minute|month|year|day|hour|user|seat|license|unit)|/min|/mo|/yr|/day|/hr|/user|/seat)\s*[\$\£\€¥₹]\s*\d[\d,]*(?:\.\d{2})?',
-            r'(?:free|no cost|complimentary|gratis)\b',
+            r'(?:free|no cost|complimentary|gratis|free forever|free plan|get for free|start free|try free)\b',
             r'(?:custom|contact|quote|estimate|call|negotiable)\s*(?:pricing|price|cost)',
             r'[\$\£\€¥₹]\s*\d[\d,]*(?:\.\d{2})?\s*[-–—]\s*[\$\£\€¥₹]\s*\d[\d,]*(?:\.\d{2})?'
         ]
@@ -291,6 +292,12 @@ def extract_pricing_info(soup) -> dict:
             price_matches = re.findall(pattern, all_text, re.I)
             if price_matches:
                 for match in price_matches:
+                    # check if free product
+                    if re.match(r'(?:free|no cost|complimentary|gratis|free forever|free plan|get for free|start free|try free)\b', match, re.I):
+                        price = match.strip()
+                        is_free_product = True
+                        break
+                    
                     cleaned_match = re.sub(r'(\d)(per|/min|/mo|/yr|/day|/hr)', r'\1 \2', match)
                     num = re.sub(r"[^\d.]", "", match)
                     try:
@@ -302,7 +309,7 @@ def extract_pricing_info(soup) -> dict:
                 if price:
                     break
     
-    return {"price": price}
+    return {"price": price, "is_free_product": is_free_product}
 
 def extract_cta_info(soup, keywords) -> dict:
     """extract cta info and positioning using dynamic keywords"""
@@ -514,12 +521,19 @@ def extract_trust_info(soup) -> dict:
     trust_badges = len(soup.find_all('img[alt*="badge"], [class*="badge"], [class*="certification"]'))
     social_proof = len(soup.find_all(string=re.compile(r'trusted by|used by|loved by|customers|clients|users|partners|enterprises|companies', re.I)))
     
+    visual_security_badges = len(soup.find_all('img[alt*="secure"], [class*="security"], [class*="ssl"], [class*="certified"]'))
+    compliance_mentions = len(soup.find_all(string=re.compile(r'gdpr|hipaa|sox|pci|iso\s*\d+|soc\s*\d+|fcc|compliant|certified', re.I)))
+    
+    effective_trust_badges = max(visual_security_badges, min(compliance_mentions, 3))
+    
     trust_indicators = {
-        "security_badges": len(soup.find_all('img[alt*="secure"], [class*="security"], [class*="ssl"], [class*="certified"]')),
+        "security_badges": visual_security_badges,
+        "compliance_mentions": compliance_mentions,
+        "effective_trust_badges": effective_trust_badges, 
         "guarantees": len(soup.find_all(string=re.compile(r'guarantee|warranty|refund|money back|satisfaction|risk.free', re.I))),
         "client_logos": len(soup.find_all('img[alt*="logo"], [class*="logo"], [class*="client"], [class*="partner"], [class*="customer"]')),
         "trust_badges": len(soup.find_all('img[alt*="badge"], [class*="badge"], [class*="certification"], [class*="award"]')),
-        "compliance": len(soup.find_all(string=re.compile(r'gdpr|hipaa|sox|pci|iso|soc|fcc|compliant|certified', re.I))),
+        "compliance": compliance_mentions,  
         "awards": len(soup.find_all(string=re.compile(r'award|winner|recognized|featured|top|best|leading', re.I))),
         "numbers": len(soup.find_all(string=re.compile(r'\d+\+?\s*(?:customers|users|clients|companies|enterprises|years|countries)', re.I)))
     }
@@ -588,6 +602,7 @@ def extract_technical_info(soup, response) -> dict:
 def calculate_conversion_scores(heuristics_data: dict) -> dict:
     """calculate conversion-focused scores based on collected heuristics"""
     scores = {}
+    site_type = heuristics_data.get('site_type', 'generic')
     
     # value proposition clarity (0-10)
     clarity_score = 0
@@ -595,13 +610,19 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         clarity_score += 3
     if heuristics_data.get('h1') and len(heuristics_data['h1']) > 5:
         clarity_score += 3
+    
     if heuristics_data.get('price') and heuristics_data['price']:
         clarity_score += 2
+    elif heuristics_data.get('is_free_product'):
+        clarity_score += 2 
+    elif site_type in ['saas', 'b2b']:
+        clarity_score += 1  # less penalty for saas/b2b without explicit pricing
+    
     if heuristics_data.get('has_subheadings'):
         clarity_score += 2
     scores['value_proposition_clarity'] = min(10, clarity_score)
     
-    # cta effectiveness (0-10)
+    # cta effectiveness (0-10) - context-aware scoring
     cta_score = 0
     if heuristics_data.get('cta') and heuristics_data['cta']:
         cta_score += 4
@@ -609,8 +630,12 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         cta_score += 3
     if heuristics_data.get('price_near_cta'):
         cta_score += 2
-    if heuristics_data.get('shipping_returns_near_cta'):
+    
+    if site_type == 'ecommerce' and heuristics_data.get('shipping_returns_near_cta'):
         cta_score += 1
+    elif site_type != 'ecommerce':
+        cta_score += 1
+        
     scores['cta_effectiveness'] = min(10, cta_score)
     
     # trust & social proof (0-10)
@@ -622,7 +647,7 @@ def calculate_conversion_scores(heuristics_data: dict) -> dict:
         trust_score += 2
     if heuristics_data.get('average_rating') and heuristics_data['average_rating'] >= 4.0:
         trust_score += 2
-    if heuristics_data.get('trust_indicators', {}).get('security_badges', 0) > 0:
+    if heuristics_data.get('trust_indicators', {}).get('effective_trust_badges', 0) > 0:
         trust_score += 1
     if heuristics_data.get('trust_indicators', {}).get('guarantees', 0) > 0:
         trust_score += 1
