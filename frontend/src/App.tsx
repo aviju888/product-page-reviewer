@@ -155,12 +155,165 @@ function App() {
 
   const handleScoreClick = (scoreType: string, score: number) => {
     const explanation = SCORE_EXPLANATIONS[scoreType as keyof typeof SCORE_EXPLANATIONS]
-    if (explanation) {
+    if (explanation && result) {
+      // Generate specific positives and negatives based on actual data
+      const scoreExplanation = generateScoreExplanation(scoreType, score, result.heuristics)
       setSelectedScore({
-        ...explanation,
-        score
+        name: explanation.name,
+        score,
+        factors: explanation.factors,
+        tips: scoreExplanation
       })
     }
+  }
+
+  const generateScoreExplanation = (scoreType: string, _score: number, heuristics: any): string[] => {
+    const explanations: string[] = []
+    
+    switch (scoreType) {
+      case 'clarity':
+        if (heuristics.title && heuristics.title.length > 10) {
+          explanations.push(`+ Descriptive page title: "${heuristics.title.substring(0, 50)}${heuristics.title.length > 50 ? '...' : ''}"`)
+        } else {
+          explanations.push('- Page title missing or too short')
+        }
+        
+        if (heuristics.h1) {
+          explanations.push(`+ Clear H1 heading: "${heuristics.h1.substring(0, 40)}${heuristics.h1.length > 40 ? '...' : ''}"`)
+        } else {
+          explanations.push('- No H1 heading found')
+        }
+        
+        if (heuristics.price) {
+          explanations.push(`+ Price clearly displayed: ${heuristics.price}`)
+        } else {
+          explanations.push('- Price not found or unclear')
+        }
+        
+        if (heuristics.has_subheadings) {
+          explanations.push('+ Content structured with subheadings')
+        } else {
+          explanations.push('- Content lacks clear subheading structure')
+        }
+        break
+
+      case 'cta':
+        if (heuristics.cta) {
+          explanations.push('+ Call-to-action button found')
+        } else {
+          explanations.push('- No clear call-to-action button detected')
+        }
+        
+        if (heuristics.cta_above_fold) {
+          explanations.push('+ CTA appears above the fold')
+        } else {
+          explanations.push('- CTA not positioned above the fold')
+        }
+        
+        if (heuristics.price_near_cta) {
+          explanations.push('+ Price positioned near CTA button')
+        } else {
+          explanations.push('- Price not close to CTA button')
+        }
+        
+        if (heuristics.shipping_returns_near_cta) {
+          explanations.push('+ Shipping/return info near CTA')
+        } else {
+          explanations.push('- Missing shipping/return info near CTA')
+        }
+        break
+
+      case 'trust':
+        if (heuristics.has_reviews_or_ratings) {
+          explanations.push('+ Customer reviews/ratings present')
+          if (heuristics.average_rating && heuristics.average_rating >= 4.0) {
+            explanations.push(`+ High average rating: ${heuristics.average_rating.toFixed(1)}/5`)
+          }
+        } else {
+          explanations.push('- No customer reviews or ratings visible')
+        }
+        
+        if (heuristics.testimonials > 0) {
+          explanations.push(`+ ${heuristics.testimonials} customer testimonials found`)
+        } else {
+          explanations.push('- No customer testimonials detected')
+        }
+        
+        if (heuristics.security_badges > 0) {
+          explanations.push(`+ ${heuristics.security_badges} security badges displayed`)
+        } else {
+          explanations.push('- No security badges found')
+        }
+        
+        if (heuristics.guarantees > 0) {
+          explanations.push('+ Money-back guarantee or warranty mentioned')
+        } else {
+          explanations.push('- No guarantees or warranties mentioned')
+        }
+        break
+
+      case 'visual':
+        if (heuristics.image_count > 0) {
+          explanations.push(`+ ${heuristics.image_count} images found`)
+          if (heuristics.image_count >= 3) {
+            explanations.push('+ Multiple product images available')
+          }
+        } else {
+          explanations.push('- No images detected')
+        }
+        
+        if (heuristics.alt_coverage && heuristics.alt_coverage >= 0.8) {
+          explanations.push(`+ Good alt text coverage: ${(heuristics.alt_coverage * 100).toFixed(0)}%`)
+        } else if (heuristics.alt_coverage > 0) {
+          explanations.push(`- Poor alt text coverage: ${(heuristics.alt_coverage * 100).toFixed(0)}%`)
+        } else {
+          explanations.push('- No alt text found on images')
+        }
+        
+        if (heuristics.gallery_present) {
+          explanations.push('+ Image gallery detected')
+        } else {
+          explanations.push('- No image gallery found')
+        }
+        break
+
+      case 'performance':
+        const pageSizeKB = Math.round((heuristics.html_bytes || 0) / 1024)
+        if (pageSizeKB < 200) {
+          explanations.push(`+ Fast loading page size: ${pageSizeKB} KB`)
+        } else if (pageSizeKB < 1000) {
+          explanations.push(`+ Reasonable page size: ${pageSizeKB} KB`)
+        } else {
+          explanations.push(`- Large page size may slow loading: ${pageSizeKB} KB`)
+        }
+        
+        const scriptCount = heuristics.external_script_count || 0
+        if (scriptCount < 10) {
+          explanations.push(`+ Minimal external scripts: ${scriptCount}`)
+        } else if (scriptCount < 20) {
+          explanations.push(`+ Moderate script usage: ${scriptCount} external scripts`)
+        } else {
+          explanations.push(`- Too many external scripts: ${scriptCount}`)
+        }
+        
+        const titleLen = heuristics.meta_title_len || 0
+        if (titleLen >= 30 && titleLen <= 60) {
+          explanations.push('+ Well-optimized meta title length')
+        } else if (titleLen > 0) {
+          explanations.push(`- Meta title length needs optimization: ${titleLen} characters`)
+        } else {
+          explanations.push('- Meta title missing')
+        }
+        
+        if (heuristics.viewport_present) {
+          explanations.push('+ Mobile viewport configured')
+        } else {
+          explanations.push('- Mobile viewport not configured')
+        }
+        break
+    }
+    
+    return explanations
   }
 
   // Safe data extraction with fallbacks
@@ -301,15 +454,29 @@ function App() {
                     </ul>
                   </div>
 
-                  <div>
-                    <h3 className="font-medium text-gray-900 mb-2">Improvement tips:</h3>
-                    <ul className="space-y-1">
-                      {selectedScore.tips.map((tip, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm text-green-700">
-                          <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          {tip}
-                        </li>
-                      ))}
+      <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Score breakdown for this page:</h3>
+                    <ul className="space-y-2">
+                      {selectedScore.tips.map((explanation, index) => {
+                        const isPositive = explanation.startsWith('+')
+                        const text = explanation.substring(2) // Remove the + or - prefix
+                        return (
+                          <li key={index} className={`flex items-start gap-3 p-2 rounded-lg ${
+                            isPositive ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                          }`}>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                              isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {isPositive ? '+' : '-'}
+                            </div>
+                            <span className={`text-sm ${
+                              isPositive ? 'text-green-900' : 'text-red-900'
+                            }`}>
+                              {text}
+                            </span>
+                          </li>
+                        )
+                      })}
                     </ul>
                   </div>
                 </div>
@@ -572,7 +739,7 @@ function App() {
           </div>
         )}
       </div>
-    </div>
+      </div>
   )
 }
 
