@@ -52,6 +52,7 @@ export type Captured = {
   engine: CaptureEngine;
   elapsedMs: number;
   status?: number;
+  redirectsBlocked?: number;
 };
 
 type CaptureTarget = { kind: "url"; url: URL } | { kind: "html"; html: string; url: string };
@@ -374,6 +375,8 @@ export async function capturePage(target: CaptureTarget, opts: CaptureOptions): 
     throw describe(err);
   });
   let context: BrowserContext | null = null;
+  let navigationRedirect = false;
+  let redirectsBlocked = 0;
   const onAbort = () => {
     context?.close().catch(() => {});
   };
@@ -397,7 +400,22 @@ export async function capturePage(target: CaptureTarget, opts: CaptureOptions): 
       if (target.kind === "html") return route.abort(); // samples are self-contained
       if (req.resourceType() === "media") return route.abort();
       if (opts.guard && !(await opts.guard(u))) return route.abort("blockedbyclient");
-      return route.continue();
+      // Chromium follows redirects without rerunning route handlers. Fetch only
+      // this hop and reject redirects before fulfilling the browser request.
+      // The pipeline can still follow validated redirects through fetchHtml().
+      try {
+        const response = await route.fetch({ maxRedirects: 0, timeout: NAV_TIMEOUT });
+        if (response.status() >= 300 && response.status() < 400 && response.headers()["location"]) {
+          redirectsBlocked += 1;
+          if (req.isNavigationRequest()) navigationRedirect = true;
+          await response.dispose();
+          return route.abort("blockedbyclient");
+        }
+        await route.fulfill({ response });
+        await response.dispose();
+      } catch {
+        await route.abort().catch(() => {});
+      }
     });
 
     const page: Page = await context.newPage();
@@ -406,13 +424,6 @@ export async function capturePage(target: CaptureTarget, opts: CaptureOptions): 
     if (target.kind === "html") {
       await page.setContent(target.html, { waitUntil: "load", timeout: 10_000 });
     } else {
-      // redirects after the first hop skip page.route, so they're checked here
-      page.on("request", (req) => {
-        if (!opts.guard || !req.isNavigationRequest() || !req.redirectedFrom()) return;
-        void opts.guard(req.url()).then((ok) => {
-          if (!ok) context?.close().catch(() => {});
-        });
-      });
       const res = await page.goto(target.url.href, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT });
       status = res?.status();
       await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
@@ -477,9 +488,11 @@ export async function capturePage(target: CaptureTarget, opts: CaptureOptions): 
       engine: target.kind === "html" ? "sample" : "playwright",
       elapsedMs: Date.now() - started,
       status,
+      redirectsBlocked,
     };
   } catch (err) {
     if (opts.signal?.aborted) throw new CaptureError("Cancelled.");
+    if (navigationRedirect) throw new CaptureError("The page redirected, so browser capture was blocked. Paste the final page URL for a screenshot.");
     throw describe(err);
   } finally {
     opts.signal?.removeEventListener("abort", onAbort);

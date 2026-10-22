@@ -1,6 +1,7 @@
 /* ─────────────────────────────────────────────────────────
  * SSE (server) — wrap a long-running pipeline as a stream of
- * named events. Every stream ends with a `done` event; thrown
+ * named events. Completed streams end with a `done` event; cancelled streams close
+ * without a success event. Thrown
  * errors become an `error` event first.
  *
  *   export async function POST(req: Request) {
@@ -22,13 +23,15 @@ export function sseResponse(
 ): Response {
   const encoder = new TextEncoder();
   const abort = new AbortController();
-  req.signal.addEventListener("abort", () => abort.abort(), { once: true });
+  const onAbort = () => abort.abort();
+  if (req.signal.aborted) abort.abort();
+  else req.signal.addEventListener("abort", onAbort, { once: true });
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let open = true;
       const send: SSESend = (event, data) => {
-        if (!open) return;
+        if (!open || abort.signal.aborted) return;
         try {
           controller.enqueue(encoder.encode(encodeFrame(event, data)));
         } catch {
@@ -36,13 +39,14 @@ export function sseResponse(
         }
       };
       try {
-        await run(send, abort.signal);
+        if (!abort.signal.aborted) await run(send, abort.signal);
       } catch (err) {
         if (!abort.signal.aborted) {
           send("error", { message: err instanceof Error ? err.message : String(err) });
         }
       } finally {
-        send("done", {});
+        if (!abort.signal.aborted) send("done", {});
+        req.signal.removeEventListener("abort", onAbort);
         open = false;
         try {
           controller.close();
@@ -52,6 +56,7 @@ export function sseResponse(
       }
     },
     cancel() {
+      req.signal.removeEventListener("abort", onAbort);
       abort.abort();
     },
   });

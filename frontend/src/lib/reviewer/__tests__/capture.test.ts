@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Script } from "node:vm";
 import { afterAll, describe, expect, it } from "vitest";
-import { boxScript, capturePage, looksBlocked, MAX_CAPTURE_HEIGHT, shutdownCapture } from "../capture";
+import { boxScript, capturePage, fetchHtml, looksBlocked, MAX_CAPTURE_HEIGHT, shutdownCapture } from "../capture";
 import { ctaTexts, getDynamicKeywords } from "../heuristics";
 import { SAMPLES } from "../samples";
 
@@ -54,4 +54,32 @@ describe("capturePage (Playwright)", () => {
     expect(c.rendered?.overlayText).toMatch(/10% off/);
     expect(c.boxes.some((b) => b.kind === "price")).toBe(false);
   }, 30_000);
+});
+
+describe('redirect interception',()=>{
+ it('never dispatches denied image or navigation redirect targets',async()=>{
+  const {createServer}=await import('node:http');
+  const requests:string[]=[];
+  const local=createServer((req,res)=>{
+   requests.push(req.url!);
+   if(req.url==='/redirect-image'||req.url==='/redirect-navigation'){res.writeHead(302,{location:'/denied'});res.end();}
+   else if(req.url==='/allowed-redirect'){res.writeHead(302,{location:'/product'});res.end();}
+   else if(req.url==='/denied'){res.writeHead(200,{'content-type':'text/html'});res.end('<title>Denied destination</title>');}
+   else {res.writeHead(200,{'content-type':'text/html'});res.end('<title>Owned product fixture</title><h1>Product</h1><img src="/redirect-image">');}
+  });
+  await new Promise<void>(resolve=>local.listen(0,'127.0.0.1',resolve));
+  const {port}=local.address() as {port:number};
+  const guard=async(raw:string)=>new URL(raw).pathname!=='/denied';
+  try {
+   const result=await capturePage({kind:'url',url:new URL(`http://127.0.0.1:${port}/`)},{ctaTexts:()=>[],guard});
+   expect(result.screenshot).not.toBeNull();expect(result.redirectsBlocked).toBe(1);expect(requests).toContain('/redirect-image');expect(requests).not.toContain('/denied');
+   await expect(capturePage({kind:'url',url:new URL(`http://127.0.0.1:${port}/redirect-navigation`)},{ctaTexts:()=>[],guard})).rejects.toThrow(/redirect/i);
+   await expect(fetchHtml(new URL(`http://127.0.0.1:${port}/redirect-navigation`),{guard})).rejects.toThrow(/private network/i);
+   const allowed=new URL(`http://127.0.0.1:${port}/allowed-redirect`);
+   await expect(capturePage({kind:'url',url:allowed},{ctaTexts:()=>[],guard})).rejects.toThrow(/redirect.*browser capture was blocked/i);
+   const html=await fetchHtml(allowed,{guard});
+   expect(html.finalUrl).toBe(`http://127.0.0.1:${port}/product`);expect(html.html).toContain('Owned product fixture');
+   expect(requests).not.toContain('/denied');
+  } finally {await shutdownCapture();await new Promise<void>(resolve=>local.close(()=>resolve()));}
+ });
 });

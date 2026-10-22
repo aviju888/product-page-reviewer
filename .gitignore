@@ -57,3 +57,5 @@ htmlcov/
 __pypackages__/
 .baseline/
 npm-audit.json
+
+.production-smoke/

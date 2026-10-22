@@ -106,7 +106,9 @@ async function captureUrl(
     const fetched = await fetchHtml(url, { signal, guard });
     return {
       captured: rawCapture(fetched.html, fetched.finalUrl, "fetch", fetched.elapsedMs),
-      note: "The browser couldn't render it, so this audit reads the raw HTML and skips the screenshot.",
+      note: browserError?.includes("page redirected")
+        ? "The page redirected, so browser capture was blocked. This audit follows checked redirects in raw HTML and skips the screenshot."
+        : "The browser couldn't render it, so this audit reads the raw HTML and skips the screenshot.",
     };
   } catch (err) {
     if (signal.aborted) throw err;
@@ -156,6 +158,10 @@ export async function runAudit(req: AuditRequest, send: SSESend, signal: AbortSi
     throw err;
   }
 
+  if (captured.redirectsBlocked) {
+    const blocked = `${captured.redirectsBlocked} redirected resource${captured.redirectsBlocked === 1 ? " was" : "s were"} blocked before loading.`;
+    note = note ? `${note} ${blocked}` : blocked;
+  }
   const jpeg = (b: Buffer | null) => (b ? `data:image/jpeg;base64,${b.toString("base64")}` : null);
   const src = jpeg(captured.screenshot);
   send("capture", {

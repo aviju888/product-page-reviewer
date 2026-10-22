@@ -51,17 +51,29 @@ export async function postSSE(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const { frames, rest } = splitFrames(buffer);
-    buffer = rest;
-    for (const f of frames) {
-      const parsed = parseFrame(f);
-      if (parsed) onEvent(parsed.event, parsed.data);
+  let terminal = false;
+  const deliver = (frame: string) => {
+    const parsed = parseFrame(frame);
+    if (!parsed) return;
+    if (parsed.event === "done" || parsed.event === "error") terminal = true;
+    onEvent(parsed.event, parsed.data);
+  };
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const { frames, rest } = splitFrames(buffer);
+      buffer = rest;
+      for (const f of frames) {
+        deliver(f);
+      }
     }
+    buffer += decoder.decode();
+    deliver(buffer);
+    signal?.throwIfAborted();
+    if (!terminal) throw new Error("The audit stream ended before a completion or error event.");
+  } finally {
+    reader.releaseLock();
   }
-  const tail = parseFrame(buffer);
-  if (tail) onEvent(tail.event, tail.data);
 }
