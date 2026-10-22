@@ -1,11 +1,1 @@
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}
+export default { content: ['./index.html','./classic/index.html','./src/**/*.{js,ts,jsx,tsx}'], theme: { extend: { spacing: {'4.5':'1.125rem','5.5':'1.375rem','6.5':'1.625rem','7.5':'1.875rem'}, colors: {"page": "var(--page)", "canvas": "var(--canvas)", "surface": "var(--surface)", "inset": "var(--inset)", "ink": "var(--ink)", "ink-2": "var(--ink-2)", "ink-3": "var(--ink-3)", "hover": "var(--hover)", "hover-2": "var(--hover-2)", "field": "var(--field)", "line": "var(--line)", "line-strong": "var(--line-strong)", "line-soft": "var(--line-soft)", "accent": "var(--accent)", "accent-ink": "var(--accent-ink)", "accent-tint": "var(--accent-tint)", "accent-fg": "var(--accent-fg)", "green": "var(--green)", "green-tint": "var(--green-tint)", "orange": "var(--orange)", "orange-tint": "var(--orange-tint)", "red": "var(--red)", "red-tint": "var(--red-tint)"}, borderRadius: {chip:'6px',control:'8px',card:'10px',window:'14px'}, boxShadow: {"xs": "var(--sh-xs)", "sm": "var(--sh-sm)", "md": "var(--sh-md)", "lg": "var(--sh-lg)", "hairline": "var(--sh-hairline)", "btn": "var(--sh-btn)", "inset-field": "var(--sh-inset-field)", "card": "var(--sh-card)", "raised": "var(--sh-raised)", "overlay": "var(--sh-overlay)"} } }, plugins: [] };

@@ -29,5 +29,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/lib/reviewer/pipeline.ts", "src/lib/reviewer/capture.ts", "src/lib/reviewer/ssrf.ts", "src/lib/reviewer/recommend.ts", "src/lib/reviewer/heuristics", "src/lib/reviewer/__tests__"]
 }

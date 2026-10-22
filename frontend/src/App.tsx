@@ -365,6 +365,7 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-50 p-4">
       <div className="max-w-4xl mx-auto">
+        <nav aria-label="Application" className="mb-5 text-right"><a href="/" className="text-blue-700 underline underline-offset-4">Open refreshed reviewer</a></nav>
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">

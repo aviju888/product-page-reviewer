@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root {
+  --page: oklch(98.5% 0.001 286.376);
+  --canvas: oklch(96.1% 0.002 247.84);
+  --surface: oklch(100% 0 0);
+  --inset: oklch(97.9% 0.002 247.839);
+  --hover: oklch(97% 0.002 247.839);
+  --hover-2: oklch(93.3% 0.003 247.86);
+  --ink: oklch(24.7% 0.006 258.361);
+  --ink-2: oklch(50.6% 0.01 264.477);
+  --ink-3: oklch(69.5% 0.009 264.505);
+  --line: oklch(94.6% 0.003 264.542);
+  --line-strong: oklch(91.2% 0.005 258.326);
+  --line-soft: oklch(96.6% 0.002 264.542);
+  --grid-line: var(--line);
+  --field: oklch(96.1% 0.001 286.375);
+  --stripe: oklch(40.5% 0 0 / 0.075);
+  --stripe-bg: oklch(97% 0 0);
+
+  --accent: oklch(62.6% 0.205 254.947);
+  --accent-ink: oklch(55.6% 0.187 255.617);
+  --accent-tint: oklch(96% 0.019 252.878);
+  --accent-fg: oklch(100% 0 0);
+  --green: oklch(60.3% 0.155 150.883);
+  --green-tint: oklch(95.8% 0.017 159.118);
+  --orange: oklch(68.9% 0.179 49.902);
+  --orange-tint: oklch(96.4% 0.021 67.581);
+  --red: oklch(62.1% 0.192 23.042);
+  --red-tint: oklch(95.6% 0.017 17.462);
+
+  --tooltip-bg: oklch(27.2% 0.008 264.435);
+  --tooltip-fg: oklch(97.6% 0.002 247.839);
+  --tooltip-muted: oklch(73.1% 0.008 260.731);
+  --tooltip-border: oklch(35.6% 0.007 264.474);
+
+  --sh-xs: 0 0 4px 0 #0000000a;
+  --sh-sm: 0 18px 47px 0 #00000008, 0 7.5px 19px 0 #00000005, 0 4px 10.5px 0 #00000005,
+    0 2.3px 5.8px 0 #00000003, 0 1.2px 3.1px 0 #00000003, 0 0.5px 1.3px 0 #00000003;
+  --sh-md: 0 17.54px 23.39px 0 #0000000a, 0 9.4px 12.5px 0 #00000008, 0 5.25px 7px 0 #00000005,
+    0 2.79px 3.72px -2px #00000003, 0 1.16px 1.5px 0 #00000003;
+  --sh-lg: 0 25px 50px 0 #0000000d, 0 12px 24px 0 #0000000a, 0 6px 12px 0 #00000008,
+    0 3px 6px 0 #00000005, 0 1.5px 3px 0 #00000005;
+  --sh-hairline: 0 0 0 1px var(--line);
+  --sh-btn: 0 0 0 1px var(--line-strong), var(--sh-xs);
+  --sh-card: 0 0 0 1px var(--line), var(--sh-sm);
+  --sh-raised: 0 0 0 1px var(--line), var(--sh-md);
+  --sh-overlay: 0 0 0 1px var(--line), var(--sh-lg);
+  --sh-inset-field: inset 0 1px 2px oklch(0% 0 0 / 0.12);
+
+  --smooth-ring-color: #0000000d;
+  --image-outline: oklch(0% 0 0 / 0.1);
+
+  color-scheme: light;
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Craft layer — small rules from craft.gustavofior.com.
+ * Each class is named after the concept page it comes from.
+ * ───────────────────────────────────────────────────────── */
+
+@layer components {
+  /* Image Outlines: a 10% line painted on top of the outermost pixels,
+     so pale images and avatars keep their shape without a border. */
+  .image-outline {
+    outline: 1px solid var(--image-outline);
+    outline-offset: -1px;
+  }
+
+  /* Hit Areas: grow the clickable box without moving layout. */
+  .hit-area {
+    position: relative;
+  }
+  .hit-area::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+
+  /* Button Press: a quick, small scale on press. Never on hover. */
+  .press {
+    transition: transform 160ms var(--ease-out-strong);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  /* Squircles: continuous corners where the browser supports them. */
+  @supports (corner-shape: squircle) {
+    .squircle {
+      corner-shape: squircle;
+    }
+  }
+
+  /* Scroll Fades: edges fade only in the directions that can still scroll.
+     ScrollFade sets data-fade-top / data-fade-bottom / data-fade-left / data-fade-right. */
+  .scroll-fade {
+    --fade: 28px;
+    --fade-top: 0px;
+    --fade-bottom: 0px;
+    --fade-left: 0px;
+    --fade-right: 0px;
+    mask-image:
+      linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent 100%),
+      linear-gradient(to right, transparent 0, #000 var(--fade-left), #000 calc(100% - var(--fade-right)), transparent 100%);
+    mask-composite: intersect;
+  }
+  .scroll-fade[data-fade-top="true"] {
+    --fade-top: var(--fade);
+  }
+  .scroll-fade[data-fade-bottom="true"] {
+    --fade-bottom: var(--fade);
+  }
+  .scroll-fade[data-fade-left="true"] {
+    --fade-left: var(--fade);
+  }
+  .scroll-fade[data-fade-right="true"] {
+    --fade-right: var(--fade);
+  }
+
+  /* Tabular Numbers: stable slots for anything that changes or aligns. */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "cv11" 1;
+  }
+}
+
+body { margin: 0; background: var(--page); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shimmer-text { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+
+:root { --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1); }
+
+/* Beautiful UI primitives used by the reviewer (MIT; see licenses). */
+.primitive-card-pad { padding: 12px; }
+.primitive-card-bar { padding: 10px 12px; }
+.primitive-card-footer { padding: 10px; }
+.primitive-icon-button { border-radius: 8px; justify-content: center; align-items: center; width: 28px; height: 28px; display: inline-flex; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

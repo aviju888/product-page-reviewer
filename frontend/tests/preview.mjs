@@ -1,0 +1,46 @@
+import { chromium } from 'playwright';
+import { mkdir, writeFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const base='http://127.0.0.1:4312';
+const out=process.env.REVIEWER_PREVIEW_OUTPUT ? new URL('file://' + process.env.REVIEWER_PREVIEW_OUTPUT.replace(/\/$/,'') + '/') : new URL('./artifacts/',import.meta.url);
+await mkdir(out,{recursive:true});
+const browser=await chromium.launch({headless:true});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(base);
+ await page.getByRole('heading',{name:'See what your product page can improve.'}).waitFor();
+ await page.screenshot({path:new URL('reviewer-modern.png',out).pathname,fullPage:true});
+ await page.getByRole('button',{name:/strong/i}).first().click();
+ await page.waitForFunction(()=>localStorage.getItem('reviewer:history:v1')?.includes('sample:strong'),null,{timeout:20000});
+ assert.equal(await page.locator('img').count()>0,true);
+ await page.screenshot({path:new URL('reviewer-audit.png',out).pathname,fullPage:true});
+ const history=await page.evaluate(()=>localStorage.getItem('reviewer:history:v1'));
+ const add=page.getByRole('button',{name:/add to fix list/i}).first();
+ await add.click();
+ await page.waitForFunction(()=>localStorage.getItem('reviewer:fixes:v1')?.includes('Label every form field'));
+ await page.evaluate(()=>localStorage.setItem('migration:sentinel','preserved'));
+ const before=await page.evaluate(()=>Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)])));
+ await page.getByRole('link',{name:'Classic',exact:true}).click();
+ await page.waitForURL('**/classic/');
+ await page.getByRole('button',{name:'Analyze Page'}).waitFor();
+ assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgba(0, 0, 0, 0)');
+ await page.screenshot({path:new URL('reviewer-classic.png',out).pathname,fullPage:true});
+ // Actual Classic endpoint invalid target uses backend validation/error handling, no provider.
+ await page.getByPlaceholder('https://example.com/product/123').fill('http://127.0.0.1:9/fixture');
+ await page.getByRole('button',{name:'Analyze Page'}).click();
+ await page.getByText('Analysis Failed',{exact:true}).waitFor();
+ await page.getByRole('link',{name:'Open refreshed reviewer'}).click();
+ await page.waitForURL(base+'/');
+ assert.equal(await page.evaluate(()=>localStorage.getItem('reviewer:history:v1')),history);
+ assert.deepEqual(await page.evaluate(()=>Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]))),before);
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:new URL('reviewer-mobile.png',out).pathname,fullPage:true});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ const privateResponse=await page.request.post(base+'/api/reviewer/audit',{data:{url:'http://127.0.0.1/'}});
+ assert.match(await privateResponse.text(),/private network/);
+ const invalid=await page.request.post(base+'/api/reviewer/audit',{data:{url:''}});assert.equal(invalid.status(),400);
+ assert.deepEqual(errors,[]);
+ const result={status:'pass',checks:['modern landing','real Chromium fixture audit','rendered screenshot','same-origin full document switching','Classic live-backend error handling','localStorage retained','mobile no overflow','private-target SSE rejection','invalid-body HTTP 400','no uncaught browser errors'],localOnly:true};
+ await writeFile(new URL('reviewer-preview-checks.json',out),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
+} finally {await browser.close();}
