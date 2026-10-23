@@ -22,7 +22,6 @@ import { CategoryInsights } from "./CategoryInsights";
 import { ClassifyCard } from "./ClassifyCard";
 import { CompetitorDuel } from "./CompetitorDuel";
 import { FixCard } from "./FixCard";
-import { ScoreDial } from "./ScoreDial";
 import { ScorePanel } from "./ScorePanel";
 import { SignalTable } from "./SignalTable";
 import { UrlBar } from "./UrlBar";
@@ -182,22 +181,17 @@ export function ReviewerApp() {
       <LayoutGroup>
         <div className="mx-auto w-full max-w-[1240px] px-4 pb-28 sm:px-6">
           {!showWorkspace ? (
-            <section className="mx-auto flex max-w-[680px] flex-col items-center pt-12 text-center sm:pt-20">
-              <h1 className="mt-2 text-[30px] leading-[1.1] font-semibold tracking-[-0.03em] text-balance text-ink sm:text-[38px]">
-                See what your product page can improve.
+            <section className="mx-auto flex min-h-[calc(100dvh-180px)] max-w-[680px] flex-col items-center justify-center pt-8 text-center">
+              <h1 className="text-[34px] leading-[1.1] font-semibold tracking-[-0.035em] text-balance text-ink sm:text-[48px]">
+                Product Page Reviewer
               </h1>
               <p className="mt-3 max-w-[520px] text-[14px] leading-relaxed text-pretty text-ink-2">
-                A real browser opens the page and runs 76 conversion checks against what it renders. Every point of the score traces back to a
-                check you can read.
+                Find ways to improve your product page.
               </p>
               <motion.div layoutId="urlbar" transition={{ duration: 0.45, ease: EASE }} className="mt-7 w-full text-left">
                 {bar(false)}
               </motion.div>
               {st.phase === "error" && st.error && <ErrorNote message={st.error} onSample={runSample} />}
-              <div className="mt-12 flex flex-col items-center gap-2" aria-hidden>
-                <ScoreDial value={0} state="idle" size={150} />
-                <span className="text-[12px] text-ink-3">Your score lands here</span>
-              </div>
             </section>
           ) : (
             <>

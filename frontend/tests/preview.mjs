@@ -9,7 +9,7 @@ try {
  const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(base);
- await page.getByRole('heading',{name:'See what your product page can improve.'}).waitFor();
+ await page.getByRole('heading',{name:'Product Page Reviewer',exact:true}).waitFor();
  await page.screenshot({path:new URL('reviewer-modern.png',out).pathname,fullPage:true});
  await page.getByRole('button',{name:/strong/i}).first().click();
  await page.waitForFunction(()=>localStorage.getItem('reviewer:history:v1')?.includes('sample:strong'),null,{timeout:20000});
