@@ -55,3 +55,7 @@ htmlcov/
 .pyre/
 .pytype/
 __pypackages__/
+.baseline/
+npm-audit.json
+
+.production-smoke/

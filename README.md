@@ -143,3 +143,7 @@ cd frontend && npm run build
     └── package.json
 ```
 
+
+## Refreshed reviewer + Classic
+
+The refreshed default and preserved Classic UI now run together. See [MIGRATION.md](MIGRATION.md) for installation, local URLs, runtime requirements, offline fixture checks, storage and deployment boundaries. The original setup above describes the Classic backend; it does not start the new browser-capture service.
